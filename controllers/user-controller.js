@@ -25,7 +25,7 @@ const ApiError = require('../exeptions/api-error');
 require('dotenv').config();
 
 class UserController {
-    async signIn(req, res, next) {
+    async logIn(req, res, next) {
         let {
             email,
             password,
@@ -67,7 +67,7 @@ class UserController {
             }
         }
     } 
-    async signUp(req, res, next) {
+    async register(req, res, next) {
         const {
             email,
             password,
@@ -119,7 +119,7 @@ class UserController {
                     await tokenService.saveToken(userDto.id, tokens.refreshToken);
 
                     res.cookie('refreshToken', tokens.refreshToken, {maxAge: 30 * 24 * 60 * 60 * 1000, httpOnly: true});
-                    res.json('Hello, new user!')
+                    res.json(user.email)
                 }
             } catch(e) {
                 next(e);

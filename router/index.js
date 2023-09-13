@@ -3,8 +3,8 @@ const router = new Router();
 const userController = require('../controllers/user-controller'); 
 const authMiddleware = require('../middlewares/auth-middleware');
 
-router.post('/sign-in', userController.signIn);
-router.post('/sign-up', userController.signUp);
+router.post('/log-in', userController.logIn);
+router.post('/register', userController.register);
 router.post('/new-collection', userController.newCollection);
 router.post('/new-card', userController.newCard);
 
