@@ -21,5 +21,5 @@ app.use(errorMiddleware)
 const PORT = process.env.PORT || 3002;
 
 app.listen(PORT, (error) => {
-    error? console.log(error): console.log(`listen localhost${PORT}`)
+    error? console.log(error): console.log(`listen port ${PORT}`)
 });
