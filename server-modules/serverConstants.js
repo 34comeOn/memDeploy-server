@@ -2,7 +2,7 @@ exports.UNPUNISHABLE_REPEAT_TIMES = 3;
 exports.MAX_PUNISHMENT_FOR_LATE_PRACTICE = 2;
 
 exports.NAME_REGEX = /^[A-Za-zA-Яа-яЁё,\s.'-]+$/;
-exports.TITLE_REGEX = /^[0-9A-Za-zA-Яа-яЁё,.\s'@#=?$!%^&*-]+$/;
+exports.TITLE_REGEX = /^[0-9A-Za-zA-Яа-яЁё,.\s'@#=+()?$!%^&*-]+$/;
 exports.TEXT_AREA_REGEX = /^[0-9A-Za-zA-Яа-яЁё,.\s!"'<+>/=@#;:)($%^&*-]+$/;
 exports.SERVER_PASSWORD_REGEX = /^[0-9A-Za-zA,!-@#$%^&*]+$/;
 
