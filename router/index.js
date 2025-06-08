@@ -20,6 +20,7 @@ router.get('/logout', userController.logout);
 
 router.put('/repeat', userController.repeat);
 router.put('/edit-collection', userController.editCollection);
+router.put('/create-share-link', userController.createShareLink);
 router.put('/edit-card', userController.editCard);
 
 module.exports = router;

@@ -97,6 +97,9 @@ const UserCollectionsDataSchema = new Schema({
         type: [String],
         required: true
     },
+    collectionShareLink: {
+        type: [String],
+    },
     collectionСategories: {
         type: [CollectionСategoriesSchema],
     },
