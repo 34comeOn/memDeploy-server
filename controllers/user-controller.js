@@ -507,6 +507,51 @@ class UserController {
             next(e)
         }
     }
+    async applyShareLink(req, res, next) {
+        try {
+            let userId = req.params.userId;
+            let collectionId = req.params.collectionId;
+            let shareLink = req.params.shareLink;
+
+            const validationSchema = [
+                [userId, validateString],
+                [collectionId, validateString],
+                [shareLink, validateString],
+            ];
+        
+            if (!validateAllRequestData(validationSchema)) {
+                res.status(400).end();
+                console.log('request has not passed validation');
+            } else {
+                User.findOne(
+                    {
+                        _id: userId,
+                        userCollectionsData: {
+                            $elemMatch: {
+                                _id: collectionId,
+                                collectionShareLink: shareLink,
+                            }
+                        }
+                    },
+                    {
+                        'userCollectionsData.$': 1
+                    }
+                )
+                .then(user => {
+                    if (!user || !user.userCollectionsData.length) {
+                        return res.status(404).send('Collection with this shareLink not found');
+                    }
+                    res.append('Cache-Control', 'private, max-age=15000').send(user.userCollectionsData[0]);
+                })
+                .catch(err => {
+                    console.log(err);
+                    res.status(500).send('Internal server error');
+                });
+            }
+        } catch (e) {
+            next(e)
+        }
+    }
     async createShareLink(req, res, next) {
         try {
             let {
@@ -559,6 +604,41 @@ class UserController {
                     res.send(result.userCollectionsData[0].collectionShareLink);
                 })
                 .catch(err => console.log(err))
+            }
+        } catch (e) {
+            res.status(500).send('Internal server error');
+            next(e)
+        }
+    }
+    async deleteShareLink(req, res, next) {
+        try {
+            let {
+                userId,
+                collectionId,
+            } = req.body;
+console.log('delete')
+            const validationSchema = [
+                [userId, validateString],
+                [collectionId, validateString],
+            ];
+        
+            if (!validateAllRequestData(validationSchema)) {
+                res.status(400).end();
+                console.log('request has not passed validation');
+            } else {
+                User.updateOne(
+                    { _id: userId, "userCollectionsData._id": collectionId },
+                    { $unset: { "userCollectionsData.$.collectionShareLink": "" } }
+                  )
+                .then(result => {
+                    console.error(result);
+                    if (!result.modifiedCount) return res.status(403).send('Share Link was not deleted');
+                    res.status(200).end();
+                })
+                .catch(err => {
+                    console.error(err);
+                    res.status(500).send('Internal server error');
+                });
             }
         } catch (e) {
             next(e)

@@ -10,7 +10,9 @@ router.post('/new-card', userController.newCard);
 
 router.delete('/delete-collection/:id/:user', userController.deleteCollection);
 router.delete('/delete-card/:cardId/:collectionId/:userId', userController.deleteCard);
+router.delete('/delete-share-link', userController.deleteShareLink);
 
+router.get('/apply-collection-share-link/:userId/:collectionId/:shareLink', userController.applyShareLink);
 router.get('/stock-collection-eng', userController.stockCollectionEng);
 router.get('/choose-collection/:id/:user', authMiddleware, userController.chooseCollection);
 router.get('/choose-stock-collection/:id/:user', userController.chooseCollection);
