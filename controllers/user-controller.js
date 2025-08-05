@@ -138,191 +138,154 @@ class UserController {
         }
     } 
     async newCollection(req, res, next) {
-        let {
-            id,
-            newUserCollection
-        } = req.body;
-    
-        const validationSchema = [
-            [id, validateString],
-            [newUserCollection.collectionColor, validateString],
-            [newUserCollection.collectionTitle, validateWithRegEx, TITLE_REGEX],
-        ];
-        const {refreshToken} = req.cookies;
-        console.log('req.cookies', refreshToken)
-        if (!validateAllRequestData(validationSchema)) {
-            res.status(403).end();
-            console.log('request has not passed validation')
-        } else {
-            User.updateOne(
-                { _id: id },
-                { $push: { userCollectionsData: newUserCollection } }
-            )
-            .then(()=> {
-                User.findById(id)
-                .then(result=> res.send(result.userCollectionsData))
-                .catch(err=> console.log(err))
-            })
-        }  
+        try{
+            let {
+                id,
+                newUserCollection
+            } = req.body;
+        
+            const validationSchema = [
+                [id, validateString],
+                [newUserCollection.collectionColor, validateString],
+                [newUserCollection.collectionTitle, validateWithRegEx, TITLE_REGEX],
+            ];
+            const {refreshToken} = req.cookies;
+            console.log('req.cookies', refreshToken)
+            if (!validateAllRequestData(validationSchema)) {
+                res.status(403).end();
+                console.log('request has not passed validation')
+            } else {
+                User.updateOne(
+                    { _id: id },
+                    { $push: { userCollectionsData: newUserCollection } }
+                )
+                .then(()=> {
+                    User.findById(id)
+                    .then(result=> res.send(result.userCollectionsData))
+                    .catch(err=> console.log(err))
+                })
+            }  
+        } catch (e) {
+            next(e)
+        }
     } 
     async newCard(req, res, next) {
-        let {
-            userId,
-            collectionId,
-            creatingNewCategory,
-            newCard,
-        } = req.body;
-    
-        const validationSchema = [
-            [userId, validateString],
-            [collectionId, validateString],
-            [creatingNewCategory, validateBoolean], 
-            [newCard.collectionItemTitle, validateWithRegEx, TITLE_REGEX],
-            [newCard.collectionItemAnswer, validateWithRegEx, TEXT_AREA_REGEX],
-            [newCard.collectionItemRepeatedTimeStamp, validateNumber],
-            [newCard.collectionItemTimesBeenRepeated, validateNumber],
-            [newCard.collectionItemCategory, validateString],
-            [newCard.collectionItemColor, validateString],
-            [newCard.collectionItemTags, validateString], // for now string, but might be 'object' in future
-        ]
-    
-        if (!validateAllRequestData(validationSchema)) {
-            res.status(400).end();
-            console.log('request has not passed validation')
-        } else {
-            let newCollectionCategoryTitle= newCard.collectionItemCategory;
-            let newCollectionCategoryColor= newCard.collectionItemColor;
+        try {
+            let {
+                userId,
+                collectionId,
+                creatingNewCategory,
+                newCard,
+            } = req.body;
         
-            if (newCollectionCategoryTitle && creatingNewCategory) {
+            const validationSchema = [
+                [userId, validateString],
+                [collectionId, validateString],
+                [creatingNewCategory, validateBoolean], 
+                [newCard.collectionItemTitle, validateWithRegEx, TITLE_REGEX],
+                [newCard.collectionItemAnswer, validateWithRegEx, TEXT_AREA_REGEX],
+                [newCard.collectionItemRepeatedTimeStamp, validateNumber],
+                [newCard.collectionItemTimesBeenRepeated, validateNumber],
+                [newCard.collectionItemCategory, validateString],
+                [newCard.collectionItemColor, validateString],
+                [newCard.collectionItemTags, validateString], // for now string, but might be 'object' in future
+            ]
+        
+            if (!validateAllRequestData(validationSchema)) {
+                res.status(400).end();
+                console.log('request has not passed validation')
+            } else {
+                let newCollectionCategoryTitle= newCard.collectionItemCategory;
+                let newCollectionCategoryColor= newCard.collectionItemColor;
+            
+                if (newCollectionCategoryTitle && creatingNewCategory) {
+                    User.updateOne(
+                        {_id: userId, 'userCollectionsData._id': collectionId},
+                        {$push: {
+                            'userCollectionsData.$.collectionСategories':
+                            {
+                                label: newCollectionCategoryTitle,
+                                value: newCollectionCategoryTitle,
+                                collectionCategoryColor: newCollectionCategoryColor,
+                            }
+                        }}
+                    )
+                    .catch(err=> console.log(err))
+                }
+            
                 User.updateOne(
                     {_id: userId, 'userCollectionsData._id': collectionId},
                     {$push: {
-                        'userCollectionsData.$.collectionСategories':
-                        {
-                            label: newCollectionCategoryTitle,
-                            value: newCollectionCategoryTitle,
-                            collectionCategoryColor: newCollectionCategoryColor,
-                        }
+                        'userCollectionsData.$.collectionData':newCard
                     }}
                 )
+                .then(()=> {
+                    User.findById(userId)
+                    .then(result=> res.send(result.userCollectionsData.find(collection => collection._id.toString() === collectionId)))
+                })
                 .catch(err=> console.log(err))
-            }
         
-            User.updateOne(
-                {_id: userId, 'userCollectionsData._id': collectionId},
-                {$push: {
-                    'userCollectionsData.$.collectionData':newCard
-                }}
-            )
-            .then(()=> {
-                User.findById(userId)
-                .then(result=> res.send(result.userCollectionsData.find(collection => collection._id.toString() === collectionId)))
-            })
-            .catch(err=> console.log(err))
-    
+            }
+        } catch (e) {
+            next(e)
         }
     } 
     async deleteCollection(req, res, next) {
-        let collectionId = req.params.id.slice(1);
-        let userId = req.params.user.slice(1);
-    
-        const validationSchema = [
-            [collectionId, validateString],
-            [userId, validateString],
-        ];
+        try {
+            let collectionId = req.params.id.slice(1);
+            let userId = req.params.user.slice(1);
         
-        if (!validateAllRequestData(validationSchema)) {
-            res.status(403).end();
-            console.log('request has not passed validation')
-        } else {
-            User.updateOne(
-                { _id: userId },
-                { $pull: { userCollectionsData: { _id: collectionId }  } }
-            )
-            .then(()=> {
-                User.findById(userId)
-                .then(result=> res.send(result.userCollectionsData))
-            })
-            .catch(err=> console.log(err))
+            const validationSchema = [
+                [collectionId, validateString],
+                [userId, validateString],
+            ];
+            
+            if (!validateAllRequestData(validationSchema)) {
+                res.status(403).end();
+                console.log('request has not passed validation')
+            } else {
+                User.updateOne(
+                    { _id: userId },
+                    { $pull: { userCollectionsData: { _id: collectionId }  } }
+                )
+                .then(()=> {
+                    User.findById(userId)
+                    .then(result=> res.send(result.userCollectionsData))
+                })
+                .catch(err=> console.log(err))
+            }
+        } catch (e) {
+            next(e)
         }
     } 
     async deleteCard(req, res, next) {
-        let cardId = req.params.cardId.slice(1);
-        let collectionId = req.params.collectionId.slice(1);
-        let userId = req.params.userId.slice(1);
-    
-        const validationSchema = [
-            [cardId, validateString],
-            [collectionId, validateString],
-            [userId, validateString],
-        ];
+        try {
+            let cardId = req.params.cardId.slice(1);
+            let collectionId = req.params.collectionId.slice(1);
+            let userId = req.params.userId.slice(1);
         
-        if (!validateAllRequestData(validationSchema)) {
-            res.status(403).end();
-            console.log('request has not passed validation')
-        } else {
-            User.updateOne(
-                { _id: userId,
-                    'userCollectionsData': {
-                        '$elemMatch': {
-                          '_id': collectionId,
-                          "collectionData._id": cardId
-                        }
-                    }
-                },
-                {$pull: 
-                    { 
-                        'userCollectionsData.$[i].collectionData': { _id: cardId },
-                    }
-                },
-                {
-                    arrayFilters: [
-                        {
-                          'i._id': collectionId,
-                        },
-                    ],
-                },
-            )
-            .then(()=> {
-                User.findById(userId)
-                .then(result=> res.send(result.userCollectionsData.find(collection => collection._id.toString() === collectionId)))
-            })
-            .catch(err => console.log(err))
-        }  
-    } 
-    async stockCollectionEng(req, res, next) {
-        User.findById(STOCK_DATA_USER_ID)
-        .then(result=> res.append('Cache-Control', 'private, max-age=15000').send(result.userCollectionsData))
-        .catch(err=> console.log(err))
-    } 
-    async chooseCollection(req, res, next) {
-        let collectionId = req.params.id.slice(1);
-        let currentUserId = req.params.user.slice(1);
-    
-        const validationSchema = [
-            [collectionId, validateString],
-            [currentUserId, validateString],
-        ];
-    
-        if (!validateAllRequestData(validationSchema)) {
-            res.status(400).end();
-            console.log('request has not passed validation')
-        } else {
-            User.findById(currentUserId)
-            .then(allUserData=> {
-                const collectionBeforePunishingForLatePractice = allUserData.userCollectionsData.find(collection => collection._id.toString() === collectionId);
-                
+            const validationSchema = [
+                [cardId, validateString],
+                [collectionId, validateString],
+                [userId, validateString],
+            ];
+            
+            if (!validateAllRequestData(validationSchema)) {
+                res.status(403).end();
+                console.log('request has not passed validation')
+            } else {
                 User.updateOne(
-                    {_id: currentUserId, 
+                    { _id: userId,
                         'userCollectionsData': {
                             '$elemMatch': {
-                                '_id': collectionId,
+                            '_id': collectionId,
+                            "collectionData._id": cardId
                             }
                         }
                     },
-                    {$set: 
+                    {$pull: 
                         { 
-                            'userCollectionsData.$[i].collectionData': applyPunishmentForCollection(collectionBeforePunishingForLatePractice),
+                            'userCollectionsData.$[i].collectionData': { _id: cardId },
                         }
                     },
                     {
@@ -334,14 +297,206 @@ class UserController {
                     },
                 )
                 .then(()=> {
-                    User.findById(currentUserId)
+                    User.findById(userId)
                     .then(result=> res.send(result.userCollectionsData.find(collection => collection._id.toString() === collectionId)))
                 })
                 .catch(err => console.log(err))
-            })
-            .catch(err=> console.log(err))
-        }    
+            }  
+        } catch (e) {
+            next(e)
+        }
     } 
+    async stockCollectionEng(req, res, next) {
+        User.findById(STOCK_DATA_USER_ID)
+        .then(result=> res.append('Cache-Control', 'private, max-age=15000').send(result.userCollectionsData))
+        .catch(err=> console.log(err))
+    } 
+    async chooseCollection(req, res, next) {
+        try {
+            let collectionId = req.params.id.slice(1);
+            let currentUserId = req.params.user.slice(1);
+        
+            const validationSchema = [
+                [collectionId, validateString],
+                [currentUserId, validateString],
+            ];
+        
+            if (!validateAllRequestData(validationSchema)) {
+                res.status(400).end();
+                console.log('request has not passed validation')
+            } else {
+                User.findById(currentUserId)
+                .then(allUserData=> {
+                    const collectionBeforePunishingForLatePractice = allUserData.userCollectionsData.find(collection => collection._id.toString() === collectionId);
+                    
+                    User.updateOne(
+                        {_id: currentUserId, 
+                            'userCollectionsData': {
+                                '$elemMatch': {
+                                    '_id': collectionId,
+                                }
+                            }
+                        },
+                        {$set: 
+                            { 
+                                'userCollectionsData.$[i].collectionData': applyPunishmentForCollection(collectionBeforePunishingForLatePractice),
+                            }
+                        },
+                        {
+                            arrayFilters: [
+                                {
+                                'i._id': collectionId,
+                                },
+                            ],
+                        },
+                    )
+                    .then(()=> {
+                        User.findById(currentUserId)
+                        .then(result=> res.send(result.userCollectionsData.find(collection => collection._id.toString() === collectionId)))
+                    })
+                    .catch(err => console.log(err))
+                })
+                .catch(err=> console.log(err))
+            } 
+        } catch (e) {
+            next(e)
+        }
+    } 
+    async chooseSharedCollection(req, res, next) {
+        try {
+            const { shareLink, currentUserId } = req.params;
+    
+            if (!validateString(shareLink) || (currentUserId && !validateString(currentUserId))) {
+                console.log('request has not passed validation');
+                return res.status(400).end();
+            }
+    
+            const shareLinkRegex = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})_([0-9a-f]{24})_([0-9a-f]{24})$/i;
+            const match = shareLink.match(shareLinkRegex);
+    
+            if (!match) {
+                console.log('Invalid shareLink format');
+                return res.status(400).end();
+            }
+    
+            const [, , validUserId, validCollectionId] = match;
+    
+            const originalUser = await User.findOne(
+                {
+                    _id: validUserId,
+                    userCollectionsData: {
+                        $elemMatch: {
+                            _id: validCollectionId,
+                            collectionShareLink: shareLink,
+                        },
+                    },
+                },
+                { 'userCollectionsData.$': 1 }
+            );
+    
+            if (!originalUser || !originalUser.userCollectionsData.length) {
+                return res.status(404).send('Collection with this shareLink not found');
+            }
+    
+            const ownerCollection = originalUser.userCollectionsData[0];
+    
+            const virginOwnerCollectionData = ownerCollection.collectionData.map(item => ({
+                _id: item._id,
+                collectionItemTitle: item.collectionItemTitle,
+                collectionItemAnswer: item.collectionItemAnswer,
+                collectionItemCategory: item.collectionItemCategory,
+                collectionItemColor: item.collectionItemColor,
+                collectionItemTags: item.collectionItemTags,
+                collectionItemComments: item.collectionItemComments,
+                collectionItemInvincibleCount: 0,
+                collectionItemPenaltyCount: 0,
+                collectionItemRepeatedTimeStamp: Date.now(),
+                collectionItemTimesBeenRepeated: 0,
+            }));
+    
+            ownerCollection.collectionData = virginOwnerCollectionData;
+    
+
+            if (!currentUserId) {
+                const collectionForGuestUser = {...ownerCollection, collectionData: virginOwnerCollectionData};
+                return res.send(collectionForGuestUser);
+            }
+
+            const currentUser = await User.findOne(
+                {
+                    _id: currentUserId,
+                    userCollectionsData: {
+                        $elemMatch: {
+                            _id: validCollectionId,
+                            collectionShareLink: shareLink,
+                        },
+                    },
+                },
+                { 'userCollectionsData.$': 1 }
+            );
+
+            if (!currentUser || !currentUser.userCollectionsData.length) {
+                const freshSharedcollection = {...ownerCollection, collectionData: virginOwnerCollectionData};
+                res.send(freshSharedcollection);
+            } else {
+                const currentUserPartOfCollectionData = currentUser.userCollectionsData;
+
+                const currentUserPartOfCollectionDataWithPunishment = applyPunishmentForCollection(currentUserPartOfCollectionData[0]);
+
+                try {
+                    const updateResult = await User.updateOne(
+                        {_id: currentUserId, 
+                            'userCollectionsData': {
+                                '$elemMatch': {
+                                    '_id': validCollectionId,
+                                }
+                            }
+                        },
+                        {$set: 
+                            { 
+                                'userCollectionsData.$[i].collectionData': currentUserPartOfCollectionDataWithPunishment,
+                            }
+                        },
+                        {
+                            arrayFilters: [
+                                {
+                                'i._id': validCollectionId,
+                                },
+                            ],
+                        },
+                    )
+    
+                    if (updateResult) {
+                        virginOwnerCollectionData.forEach((virginOwnerItem) => {
+                            const currentUserItem = currentUserPartOfCollectionDataWithPunishment.find(currentUserItem => JSON.stringify(currentUserItem._id) === JSON.stringify(virginOwnerItem._id));
+
+                            if (currentUserItem) {
+                                return ({
+                                    ...virginOwnerItem,
+                                    collectionItemInvincibleCount: currentUserItem.collectionItemInvincibleCount || 0,
+                                    collectionItemPenaltyCount: currentUserItem.collectionItemPenaltyCount || 0,
+                                    collectionItemRepeatedTimeStamp: currentUserItem.collectionItemRepeatedTimeStamp || Date.now(),
+                                    collectionItemTimesBeenRepeated: currentUserItem.collectionItemTimesBeenRepeated || 0,
+                                })
+                            }
+
+                            return virginOwnerItem;
+                        })
+
+                        const oldSharedcollection = {...ownerCollection, collectionData: virginOwnerCollectionData};
+                        res.send(oldSharedcollection);
+                    } else {
+                        res.send(ownerCollection);
+                    }
+                } catch (e) {
+                    console.log(e);
+                    res.status(500).send('Internal Server Error');
+                }
+            }
+        } catch (error) {
+            next(error);
+        }
+    }
     async activate(req, res, next) {
         try {
             let link = req.params.link;
@@ -367,190 +522,399 @@ class UserController {
             }
 
         } catch (e) {
-            console.log(e)
+            console.log(e);
+            next(e);
         }
     } 
     async repeat(req, res, next) {
-        let {
-            userId, 
-            cardId, 
-            collectionId,
-            collectionItemTimesBeenRepeated,
-            collectionItemRepeatedTimeStamp,
-            collectionItemPenaltyCount,
-            collectionItemInvincibleCount,
-        } =req.body;
-    
-        const validationSchema = [
-            [userId, validateString],
-            [cardId, validateString],
-            [collectionId, validateString],
-            [collectionItemTimesBeenRepeated, validateNumber],
-            [collectionItemRepeatedTimeStamp, validateNumber],
-            [collectionItemPenaltyCount, validateNumber],
-            [collectionItemInvincibleCount, validateNumber],
-        ]
-    
-        if (!validateAllRequestData(validationSchema)) {
-            res.status(400).end();
-            console.log('request has not passed validation')
-        } else {
-            User.updateOne(
-                {_id: userId, 
-                    'userCollectionsData': {
-                        '$elemMatch': {
-                        '_id': collectionId,
-                        "collectionData._id": cardId
+        try {
+            let {
+                userId, 
+                cardId, 
+                collectionId,
+                collectionItemTimesBeenRepeated,
+                collectionItemRepeatedTimeStamp,
+                collectionItemPenaltyCount,
+                collectionItemInvincibleCount,
+            } =req.body;
+        
+            const validationSchema = [
+                [userId, validateString],
+                [cardId, validateString],
+                [collectionId, validateString],
+                [collectionItemTimesBeenRepeated, validateNumber],
+                [collectionItemRepeatedTimeStamp, validateNumber],
+                [collectionItemPenaltyCount, validateNumber],
+                [collectionItemInvincibleCount, validateNumber],
+            ]
+        
+            if (!validateAllRequestData(validationSchema)) {
+                res.status(400).end();
+                console.log('request has not passed validation')
+            } else {
+                User.updateOne(
+                    {_id: userId, 
+                        'userCollectionsData': {
+                            '$elemMatch': {
+                            '_id': collectionId,
+                            "collectionData._id": cardId
+                            }
                         }
-                    }
-                },
-                {$set: 
-                    { 
-                        'userCollectionsData.$[i].collectionData.$[k].collectionItemTimesBeenRepeated': collectionItemTimesBeenRepeated,
-                        'userCollectionsData.$[i].collectionData.$[k].collectionItemRepeatedTimeStamp': collectionItemRepeatedTimeStamp,
-                        'userCollectionsData.$[i].collectionData.$[k].collectionItemPenaltyCount': collectionItemPenaltyCount,
-                        'userCollectionsData.$[i].collectionData.$[k].collectionItemInvincibleCount': collectionItemInvincibleCount,
-                    }
-                },
-                {
-                    arrayFilters: [
-                        {
-                        'i._id': collectionId,
-                        },
-                        {
-                        'k._id': cardId,
-                        },
-                    ],
-                },
-            )
-            .then(()=> {
-                User.findById(userId)
-                .then(result=> res.send(result.userCollectionsData.find(collection => collection._id.toString() === collectionId)))
-            })
-            .catch(err => console.log(err))
-        }   
+                    },
+                    {$set: 
+                        { 
+                            'userCollectionsData.$[i].collectionData.$[k].collectionItemTimesBeenRepeated': collectionItemTimesBeenRepeated,
+                            'userCollectionsData.$[i].collectionData.$[k].collectionItemRepeatedTimeStamp': collectionItemRepeatedTimeStamp,
+                            'userCollectionsData.$[i].collectionData.$[k].collectionItemPenaltyCount': collectionItemPenaltyCount,
+                            'userCollectionsData.$[i].collectionData.$[k].collectionItemInvincibleCount': collectionItemInvincibleCount,
+                        }
+                    },
+                    {
+                        arrayFilters: [
+                            {
+                            'i._id': collectionId,
+                            },
+                            {
+                            'k._id': cardId,
+                            },
+                        ],
+                    },
+                )
+                .then(()=> {
+                    User.findById(userId)
+                    .then(result=> res.send(result.userCollectionsData.find(collection => collection._id.toString() === collectionId)))
+                })
+                .catch(err => console.log(err))
+            }
+        } catch (e) {
+            next(e)
+        }
     } 
     async editCollection(req, res, next) {
-        let {
-            userId, 
-            collectionId,
-            collectionColor,
-            collectionTitle,
-        } =req.body;
-    
-        const validationSchema = [
-            [userId, validateString],
-            [collectionId, validateString],
-            [collectionColor, validateString],
-            [collectionTitle, validateWithRegEx, TITLE_REGEX],
-        ]
-    
-        if (!validateAllRequestData(validationSchema)) {
-            res.status(400).end();
-            console.log('request has not passed validation')
-        } else {
-            User.updateOne(
-                {_id: userId, 
-                    'userCollectionsData': {
-                        '$elemMatch': {
-                        '_id': collectionId,
-                        }
-                    }
-                },
-                {$set: 
-                    { 
-                        'userCollectionsData.$[i].collectionColor': collectionColor,
-                        'userCollectionsData.$[i].collectionTitle': collectionTitle,
-                    }
-                },
-                {
-                    arrayFilters: [
-                        {
-                        'i._id': collectionId,
-                        },
-                    ],
-                },
-            )
-            .then(()=> {
-                User.findById(userId)
-                .then(result=> res.send(result.userCollectionsData))
-            })
-            .catch(err => console.log(err))
-        }    
-    } 
-    async editCard(req, res, next) {
-        let {
-            userId,
-            collectionId,
-            cardId,
-            creatingNewCategory,
-            editedCard,
-        } = req.body;
-    
-        const validationSchema = [
-            [userId, validateString],
-            [collectionId, validateString],
-            [cardId, validateString],
-            [creatingNewCategory, validateBoolean],
-            [editedCard.collectionItemCategory, validateString],
-            [editedCard.collectionItemColor, validateString],
-        ]
-    
-        if (!validateAllRequestData(validationSchema)) {
-            res.status(400).end();
-            console.log('request has not passed validation')
-        } else {
-            let newCollectionCategoryTitle= editedCard.collectionItemCategory;
-            let newCollectionCategoryColor= editedCard.collectionItemColor;
+        try {
+            let {
+                userId, 
+                collectionId,
+                collectionColor,
+                collectionTitle,
+            } =req.body;
         
-            if (newCollectionCategoryTitle && creatingNewCategory) {
+            const validationSchema = [
+                [userId, validateString],
+                [collectionId, validateString],
+                [collectionColor, validateString],
+                [collectionTitle, validateWithRegEx, TITLE_REGEX],
+            ]
+        
+            if (!validateAllRequestData(validationSchema)) {
+                res.status(400).end();
+                console.log('request has not passed validation')
+            } else {
                 User.updateOne(
-                    {_id: userId, 'userCollectionsData._id': collectionId},
-                    {$push: {
-                        'userCollectionsData.$.collectionСategories':
-                        {
-                            label: newCollectionCategoryTitle,
-                            value: newCollectionCategoryTitle,
-                            collectionCategoryColor: newCollectionCategoryColor,
+                    {_id: userId, 
+                        'userCollectionsData': {
+                            '$elemMatch': {
+                            '_id': collectionId,
+                            }
                         }
-                    }}
+                    },
+                    {$set: 
+                        { 
+                            'userCollectionsData.$[i].collectionColor': collectionColor,
+                            'userCollectionsData.$[i].collectionTitle': collectionTitle,
+                        }
+                    },
+                    {
+                        arrayFilters: [
+                            {
+                            'i._id': collectionId,
+                            },
+                        ],
+                    },
                 )
-                .catch(err=> console.log(err))
+                .then(()=> {
+                    User.findById(userId)
+                    .then(result=> res.send(result.userCollectionsData))
+                })
+                .catch(err => console.log(err))
+            }  
+        } catch (e) {
+            next(e)
+        }
+    }
+    async applyShareLink(req, res, next) {
+        try {
+            let userId = req.params.userId;
+            let collectionId = req.params.collectionId;
+            let shareLink = req.params.shareLink;
+            let currentUserId = req.params.currentUserId;
+
+            const validationSchema = [
+                [userId, validateString],
+                [collectionId, validateString],
+                [shareLink, validateString],
+            ];
+
+            if (currentUserId) {
+                validationSchema.push([currentUserId, validateString])
             }
-            
-            User.updateOne(
-                {_id: userId, 
-                    'userCollectionsData': {
-                        '$elemMatch': {
-                          '_id': collectionId,
-                          "collectionData._id": cardId
+
+            if (!validateAllRequestData(validationSchema)) {
+                res.status(400).end();
+                console.log('request has not passed validation');
+            } else {
+                const ownerCollection = await User.findOne(
+                    {
+                        _id: userId,
+                        userCollectionsData: {
+                            $elemMatch: {
+                                _id: collectionId,
+                                collectionShareLink: shareLink,
+                            }
                         }
+                    },
+                    {
+                        'userCollectionsData.$': 1
                     }
-                },
-                {$set: 
-                    { 
-                        'userCollectionsData.$[i].collectionData.$[k].collectionItemTitle': editedCard.collectionItemTitle,
-                        'userCollectionsData.$[i].collectionData.$[k].collectionItemAnswer': editedCard.collectionItemAnswer,
-                        'userCollectionsData.$[i].collectionData.$[k].collectionItemCategory': editedCard.collectionItemCategory,
-                        'userCollectionsData.$[i].collectionData.$[k].collectionItemColor': editedCard.collectionItemColor,
+                )
+
+                if (!currentUserId) {
+                    if (!ownerCollection || !ownerCollection.userCollectionsData.length) {
+                        return res.status(404).send('Collection with this shareLink not found');
                     }
-                },
-                {
-                    arrayFilters: [
-                        {
-                          'i._id': collectionId,
-                        },
-                        {
-                          'k._id': cardId,
-                        },
-                    ],
-                },
-            )
-            .then(()=> {
-                User.findById(userId)
-                .then(result=> res.send(result.userCollectionsData.find(collection => collection._id.toString() === collectionId)))
-            })
-            .catch(err => console.log(err))
+                    res.append('Cache-Control', 'private, max-age=15000').send(ownerCollection.userCollectionsData[0]);
+                } else {
+                    try {
+                        const currentUserAlreadyHasThisCollection = await User.findOne(
+                            {
+                                _id: currentUserId,
+                                userCollectionsData: {
+                                    $elemMatch: {
+                                        _id: collectionId,
+                                        collectionShareLink: shareLink,
+                                    }
+                                }
+                            },
+                            {
+                                'userCollectionsData.$': 1
+                            }
+                        )
+
+                        if (currentUserAlreadyHasThisCollection) {
+                            res.status(404).send('Collection already been shared');
+                        } else {
+                            const currentUserVirginCollectionData = ownerCollection.userCollectionsData[0].collectionData.map(item => ({
+                                _id: item._id.toString(),
+                                collectionItemTitle: item.collectionItemTitle,
+                                collectionItemAnswer: item.collectionItemAnswer,
+                                collectionItemCategory: item.collectionItemCategory,
+                                collectionItemColor: item.collectionItemColor,
+                                collectionItemTags: item.collectionItemTags,
+                                collectionItemComments: item.collectionItemComments,
+                                collectionItemInvincibleCount: 0,
+                                collectionItemPenaltyCount: 0,
+                                collectionItemRepeatedTimeStamp: Date.now(),
+                                collectionItemTimesBeenRepeated: 0,
+                            }));
+
+                            const currentUserNewSharedCollection = {
+                                _id: ownerCollection.userCollectionsData[0]._id || '',
+                                collectionColor: ownerCollection.userCollectionsData[0].collectionColor || '',
+                                collectionImage: ownerCollection.userCollectionsData[0].collectionImage || '',
+                                collectionTitle: ownerCollection.userCollectionsData[0].collectionTitle || '',
+                                collectionShareLink: ownerCollection.userCollectionsData[0].collectionShareLink || [],
+                                collectionAdminList: ownerCollection.userCollectionsData[0].collectionAdminList || [],
+                                collectionСategories: ownerCollection.userCollectionsData[0].collectionСategories || [],
+                                collectionTags: ownerCollection.userCollectionsData[0].collectionTags || [],
+                                collectionData: currentUserVirginCollectionData || [],
+                            }
+
+                            const result = await User.updateOne(
+                                { _id: currentUserId },
+                                { $push: { userCollectionsData: currentUserNewSharedCollection } }
+                            )
+
+                            res.send(currentUserNewSharedCollection);
+                        }
+                    } catch (e) {
+                        console.error(e);
+                        res.status(500).send('Internal server error');
+                    }
+                }
+            }
+        } catch (e) {
+            next(e)
+        }
+    }
+    async createShareLink(req, res, next) {
+        try {
+            let {
+                userId,
+                collectionId,
+            } = req.body;
+
+            const validationSchema = [
+                [userId, validateString],
+                [collectionId, validateString],
+            ];
+        
+            if (!validateAllRequestData(validationSchema)) {
+                res.status(400).end();
+                console.log('request has not passed validation');
+            } else {
+                const uniqueValue = uuid.v4();
+
+                const shareLink = `${uniqueValue}_${userId}_${collectionId}`;
+
+                User.updateOne(
+                    {_id: userId, 
+                        'userCollectionsData': {
+                            '$elemMatch': {
+                            '_id': collectionId,
+                            }
+                        }
+                    },
+                    {$set: 
+                        { 
+                            'userCollectionsData.$[i].collectionShareLink': shareLink,
+                        }
+                    },
+                    {
+                        arrayFilters: [
+                            {
+                            'i._id': collectionId,
+                            },
+                        ],
+                    },
+                )
+                .then(() => {
+                    return User.findOne(
+                        { _id: userId, 'userCollectionsData._id': collectionId },
+                        { 'userCollectionsData.$': 1 }
+                    );
+                })
+                .then(result => {
+                    if (!result) return res.status(403).send('User or collection not found');
+                    res.send(result.userCollectionsData[0].collectionShareLink);
+                })
+                .catch(err => console.log(err))
+            }
+        } catch (e) {
+            res.status(500).send('Internal server error');
+            next(e)
+        }
+    }
+    async deleteShareLink(req, res, next) {
+        try {
+            let {
+                userId,
+                collectionId,
+            } = req.body;
+console.log('delete')
+            const validationSchema = [
+                [userId, validateString],
+                [collectionId, validateString],
+            ];
+        
+            if (!validateAllRequestData(validationSchema)) {
+                res.status(400).end();
+                console.log('request has not passed validation');
+            } else {
+                User.updateOne(
+                    { _id: userId, "userCollectionsData._id": collectionId },
+                    { $unset: { "userCollectionsData.$.collectionShareLink": "" } }
+                  )
+                .then(result => {
+                    console.error(result);
+                    if (!result.modifiedCount) return res.status(403).send('Share Link was not deleted');
+                    res.status(200).end();
+                })
+                .catch(err => {
+                    console.error(err);
+                    res.status(500).send('Internal server error');
+                });
+            }
+        } catch (e) {
+            next(e)
+        }
+    }
+    async editCard(req, res, next) {
+        try {
+            let {
+                userId,
+                collectionId,
+                cardId,
+                creatingNewCategory,
+                editedCard,
+            } = req.body;
+        
+            const validationSchema = [
+                [userId, validateString],
+                [collectionId, validateString],
+                [cardId, validateString],
+                [creatingNewCategory, validateBoolean],
+                [editedCard.collectionItemCategory, validateString],
+                [editedCard.collectionItemColor, validateString],
+            ]
+        
+            if (!validateAllRequestData(validationSchema)) {
+                res.status(400).end();
+                console.log('request has not passed validation')
+            } else {
+                let newCollectionCategoryTitle= editedCard.collectionItemCategory;
+                let newCollectionCategoryColor= editedCard.collectionItemColor;
+            
+                if (newCollectionCategoryTitle && creatingNewCategory) {
+                    User.updateOne(
+                        {_id: userId, 'userCollectionsData._id': collectionId},
+                        {$push: {
+                            'userCollectionsData.$.collectionСategories':
+                            {
+                                label: newCollectionCategoryTitle,
+                                value: newCollectionCategoryTitle,
+                                collectionCategoryColor: newCollectionCategoryColor,
+                            }
+                        }}
+                    )
+                    .catch(err=> console.log(err))
+                }
+                
+                User.updateOne(
+                    {_id: userId, 
+                        'userCollectionsData': {
+                            '$elemMatch': {
+                              '_id': collectionId,
+                              "collectionData._id": cardId
+                            }
+                        }
+                    },
+                    {$set: 
+                        { 
+                            'userCollectionsData.$[i].collectionData.$[k].collectionItemTitle': editedCard.collectionItemTitle,
+                            'userCollectionsData.$[i].collectionData.$[k].collectionItemAnswer': editedCard.collectionItemAnswer,
+                            'userCollectionsData.$[i].collectionData.$[k].collectionItemCategory': editedCard.collectionItemCategory,
+                            'userCollectionsData.$[i].collectionData.$[k].collectionItemColor': editedCard.collectionItemColor,
+                        }
+                    },
+                    {
+                        arrayFilters: [
+                            {
+                              'i._id': collectionId,
+                            },
+                            {
+                              'k._id': cardId,
+                            },
+                        ],
+                    },
+                )
+                .then(()=> {
+                    User.findById(userId)
+                    .then(result=> res.send(result.userCollectionsData.find(collection => collection._id.toString() === collectionId)))
+                })
+                .catch(err => console.log(err))
+            }
+        } catch (e) {
+            next(e)
         }
     } 
     async refresh(req, res, next) {

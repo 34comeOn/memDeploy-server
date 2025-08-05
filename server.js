@@ -6,6 +6,8 @@ const router = require('./router/index');
 const errorMiddleware = require('./middlewares/error-middleware');
 require('dotenv').config();
 
+mongoose.set('strictQuery', false);
+
 mongoose
     .connect(process.env.DB_URL)
     .then((res)=> console.log('Connected to DB'))

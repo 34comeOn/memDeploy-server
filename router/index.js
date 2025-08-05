@@ -10,16 +10,22 @@ router.post('/new-card', userController.newCard);
 
 router.delete('/delete-collection/:id/:user', userController.deleteCollection);
 router.delete('/delete-card/:cardId/:collectionId/:userId', userController.deleteCard);
+router.delete('/delete-share-link', userController.deleteShareLink);
 
+router.get('/apply-collection-share-link/:userId/:collectionId/:shareLink', userController.applyShareLink);
+router.get('/apply-collection-share-link/:userId/:collectionId/:shareLink/:currentUserId', userController.applyShareLink);
 router.get('/stock-collection-eng', userController.stockCollectionEng);
 router.get('/choose-collection/:id/:user', authMiddleware, userController.chooseCollection);
 router.get('/choose-stock-collection/:id/:user', userController.chooseCollection);
+router.get('/choose-shared-collection/:shareLink/', userController.chooseSharedCollection);
+router.get('/choose-shared-collection/:shareLink/:currentUserId', userController.chooseSharedCollection);
 router.get('/activate/:link', userController.activate);
 router.get('/refresh', userController.refresh);
 router.get('/logout', userController.logout);
 
 router.put('/repeat', userController.repeat);
 router.put('/edit-collection', userController.editCollection);
+router.put('/create-share-link', userController.createShareLink);
 router.put('/edit-card', userController.editCard);
 
 module.exports = router;
