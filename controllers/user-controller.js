@@ -362,6 +362,141 @@ class UserController {
             next(e)
         }
     } 
+    async chooseSharedCollection(req, res, next) {
+        try {
+            const { shareLink, currentUserId } = req.params;
+    
+            if (!validateString(shareLink) || (currentUserId && !validateString(currentUserId))) {
+                console.log('request has not passed validation');
+                return res.status(400).end();
+            }
+    
+            const shareLinkRegex = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})_([0-9a-f]{24})_([0-9a-f]{24})$/i;
+            const match = shareLink.match(shareLinkRegex);
+    
+            if (!match) {
+                console.log('Invalid shareLink format');
+                return res.status(400).end();
+            }
+    
+            const [, , validUserId, validCollectionId] = match;
+    
+            const originalUser = await User.findOne(
+                {
+                    _id: validUserId,
+                    userCollectionsData: {
+                        $elemMatch: {
+                            _id: validCollectionId,
+                            collectionShareLink: shareLink,
+                        },
+                    },
+                },
+                { 'userCollectionsData.$': 1 }
+            );
+    
+            if (!originalUser || !originalUser.userCollectionsData.length) {
+                return res.status(404).send('Collection with this shareLink not found');
+            }
+    
+            const ownerCollection = originalUser.userCollectionsData[0];
+    
+            const virginOwnerCollectionData = ownerCollection.collectionData.map(item => ({
+                _id: item._id,
+                collectionItemTitle: item.collectionItemTitle,
+                collectionItemAnswer: item.collectionItemAnswer,
+                collectionItemCategory: item.collectionItemCategory,
+                collectionItemColor: item.collectionItemColor,
+                collectionItemTags: item.collectionItemTags,
+                collectionItemComments: item.collectionItemComments,
+                collectionItemInvincibleCount: 0,
+                collectionItemPenaltyCount: 0,
+                collectionItemRepeatedTimeStamp: Date.now(),
+                collectionItemTimesBeenRepeated: 0,
+            }));
+    
+            ownerCollection.collectionData = virginOwnerCollectionData;
+    
+
+            if (!currentUserId) {
+                const collectionForGuestUser = {...ownerCollection, collectionData: virginOwnerCollectionData};
+                return res.send(collectionForGuestUser);
+            }
+
+            const currentUser = await User.findOne(
+                {
+                    _id: currentUserId,
+                    userCollectionsData: {
+                        $elemMatch: {
+                            _id: validCollectionId,
+                            collectionShareLink: shareLink,
+                        },
+                    },
+                },
+                { 'userCollectionsData.$': 1 }
+            );
+
+            if (!currentUser || !currentUser.userCollectionsData.length) {
+                const freshSharedcollection = {...ownerCollection, collectionData: virginOwnerCollectionData};
+                res.send(freshSharedcollection);
+            } else {
+                const currentUserPartOfCollectionData = currentUser.userCollectionsData;
+
+                const currentUserPartOfCollectionDataWithPunishment = applyPunishmentForCollection(currentUserPartOfCollectionData[0]);
+
+                try {
+                    const updateResult = await User.updateOne(
+                        {_id: currentUserId, 
+                            'userCollectionsData': {
+                                '$elemMatch': {
+                                    '_id': validCollectionId,
+                                }
+                            }
+                        },
+                        {$set: 
+                            { 
+                                'userCollectionsData.$[i].collectionData': currentUserPartOfCollectionDataWithPunishment,
+                            }
+                        },
+                        {
+                            arrayFilters: [
+                                {
+                                'i._id': validCollectionId,
+                                },
+                            ],
+                        },
+                    )
+    
+                    if (updateResult) {
+                        virginOwnerCollectionData.forEach((virginOwnerItem) => {
+                            const currentUserItem = currentUserPartOfCollectionDataWithPunishment.find(currentUserItem => JSON.stringify(currentUserItem._id) === JSON.stringify(virginOwnerItem._id));
+
+                            if (currentUserItem) {
+                                return ({
+                                    ...virginOwnerItem,
+                                    collectionItemInvincibleCount: currentUserItem.collectionItemInvincibleCount || 0,
+                                    collectionItemPenaltyCount: currentUserItem.collectionItemPenaltyCount || 0,
+                                    collectionItemRepeatedTimeStamp: currentUserItem.collectionItemRepeatedTimeStamp || Date.now(),
+                                    collectionItemTimesBeenRepeated: currentUserItem.collectionItemTimesBeenRepeated || 0,
+                                })
+                            }
+
+                            return virginOwnerItem;
+                        })
+
+                        const oldSharedcollection = {...ownerCollection, collectionData: virginOwnerCollectionData};
+                        res.send(oldSharedcollection);
+                    } else {
+                        res.send(ownerCollection);
+                    }
+                } catch (e) {
+                    console.log(e);
+                    res.status(500).send('Internal Server Error');
+                }
+            }
+        } catch (error) {
+            next(error);
+        }
+    }
     async activate(req, res, next) {
         try {
             let link = req.params.link;
@@ -512,18 +647,23 @@ class UserController {
             let userId = req.params.userId;
             let collectionId = req.params.collectionId;
             let shareLink = req.params.shareLink;
+            let currentUserId = req.params.currentUserId;
 
             const validationSchema = [
                 [userId, validateString],
                 [collectionId, validateString],
                 [shareLink, validateString],
             ];
-        
+
+            if (currentUserId) {
+                validationSchema.push([currentUserId, validateString])
+            }
+
             if (!validateAllRequestData(validationSchema)) {
                 res.status(400).end();
                 console.log('request has not passed validation');
             } else {
-                User.findOne(
+                const ownerCollection = await User.findOne(
                     {
                         _id: userId,
                         userCollectionsData: {
@@ -537,16 +677,70 @@ class UserController {
                         'userCollectionsData.$': 1
                     }
                 )
-                .then(user => {
-                    if (!user || !user.userCollectionsData.length) {
+
+                if (!currentUserId) {
+                    if (!ownerCollection || !ownerCollection.userCollectionsData.length) {
                         return res.status(404).send('Collection with this shareLink not found');
                     }
-                    res.append('Cache-Control', 'private, max-age=15000').send(user.userCollectionsData[0]);
-                })
-                .catch(err => {
-                    console.log(err);
-                    res.status(500).send('Internal server error');
-                });
+                    res.append('Cache-Control', 'private, max-age=15000').send(ownerCollection.userCollectionsData[0]);
+                } else {
+                    try {
+                        const currentUserAlreadyHasThisCollection = await User.findOne(
+                            {
+                                _id: currentUserId,
+                                userCollectionsData: {
+                                    $elemMatch: {
+                                        _id: collectionId,
+                                        collectionShareLink: shareLink,
+                                    }
+                                }
+                            },
+                            {
+                                'userCollectionsData.$': 1
+                            }
+                        )
+
+                        if (currentUserAlreadyHasThisCollection) {
+                            res.status(404).send('Collection already been shared');
+                        } else {
+                            const currentUserVirginCollectionData = ownerCollection.userCollectionsData[0].collectionData.map(item => ({
+                                _id: item._id.toString(),
+                                collectionItemTitle: item.collectionItemTitle,
+                                collectionItemAnswer: item.collectionItemAnswer,
+                                collectionItemCategory: item.collectionItemCategory,
+                                collectionItemColor: item.collectionItemColor,
+                                collectionItemTags: item.collectionItemTags,
+                                collectionItemComments: item.collectionItemComments,
+                                collectionItemInvincibleCount: 0,
+                                collectionItemPenaltyCount: 0,
+                                collectionItemRepeatedTimeStamp: Date.now(),
+                                collectionItemTimesBeenRepeated: 0,
+                            }));
+
+                            const currentUserNewSharedCollection = {
+                                _id: ownerCollection.userCollectionsData[0]._id || '',
+                                collectionColor: ownerCollection.userCollectionsData[0].collectionColor || '',
+                                collectionImage: ownerCollection.userCollectionsData[0].collectionImage || '',
+                                collectionTitle: ownerCollection.userCollectionsData[0].collectionTitle || '',
+                                collectionShareLink: ownerCollection.userCollectionsData[0].collectionShareLink || [],
+                                collectionAdminList: ownerCollection.userCollectionsData[0].collectionAdminList || [],
+                                collectionСategories: ownerCollection.userCollectionsData[0].collectionСategories || [],
+                                collectionTags: ownerCollection.userCollectionsData[0].collectionTags || [],
+                                collectionData: currentUserVirginCollectionData || [],
+                            }
+
+                            const result = await User.updateOne(
+                                { _id: currentUserId },
+                                { $push: { userCollectionsData: currentUserNewSharedCollection } }
+                            )
+
+                            res.send(currentUserNewSharedCollection);
+                        }
+                    } catch (e) {
+                        console.error(e);
+                        res.status(500).send('Internal server error');
+                    }
+                }
             }
         } catch (e) {
             next(e)
